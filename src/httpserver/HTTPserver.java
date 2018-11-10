@@ -2,26 +2,27 @@ package httpserver;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.text.DateFormat;
-import java.text.SimpleDateFormat;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.Date;
 
 public class HTTPserver {
 
     static final int PORT = 8080;
+    
 
     public static void main(String[] args) throws Exception {
         int id = 1;
+
         ServerSocket serverConnect = new ServerSocket(PORT);
         System.out.println("Server started.\nListening for connections on port : " + PORT + " ...\n");
         while (true) {
@@ -55,7 +56,19 @@ class Worker implements Runnable {
             BufferedReader inFromClient = new BufferedReader(new InputStreamReader(connectionSocket.getInputStream()));
             PrintWriter outToClient = new PrintWriter(connectionSocket.getOutputStream());
             clientSentence = inFromClient.readLine();
+            BufferedWriter out = null;
+            
+            
+            try {
+                FileWriter fstream = new FileWriter("log.txt", true); //true tells to append data.
+                out = new BufferedWriter(fstream);
+                //out.write("\nsue");
+            } catch (IOException e) {
+                System.err.println("Error: " + e.getMessage());
+            }
 
+            
+            
             System.out.println("Here Input : " + clientSentence);
 
             if (clientSentence != null) {
@@ -66,6 +79,20 @@ class Worker implements Runnable {
 //                }
                 if (spilts[0].equals("GET ")) {
                     //System.out.println("get");
+                    out.write("GET:");
+                    out.flush();
+                    out.write("\n"+clientSentence);
+                    out.flush();
+                    
+                    String temp="";
+                    
+                    while((temp=inFromClient.readLine()).length()!=0)
+                    {
+                        out.write("\n"+temp);
+                        out.flush();
+                    }
+                    
+                    
                     String nameofthefile[] = spilts[1].split(" ");
 
                     if (nameofthefile[0].length() == 0) {
@@ -93,10 +120,17 @@ class Worker implements Runnable {
 
                 } else if (spilts[0].equals("POST ")) {
                     System.out.println("post");
+                    
+                    out.write("POST:");
+                    out.flush();
+                    out.write("\n"+clientSentence);
+                    out.flush();
                     String postlines = inFromClient.readLine();
                     //inFromClient.re 
                     int postlen = 0;
                     while (postlines != null && (postlines.length() != 0)) {
+                        out.write("\n"+postlines);
+                        out.flush();
                         System.out.println("input:" + postlines);
                         if (postlines.indexOf("Content-Length:") != -1) {
                             postlen = Integer.parseInt(postlines.substring(postlines.indexOf("Content-Length:") + 16, postlines.length()));
@@ -139,8 +173,6 @@ class Worker implements Runnable {
             return "image/gif";
         } else if (nameofhefile.endsWith("tiff")) {
             return "image/tiff";
-        } else if (nameofhefile.endsWith("tiff")) {
-            return "image/tiff";
         } else if (nameofhefile.endsWith("txt")) {
             return "text/plain";
         }
@@ -165,12 +197,14 @@ class Worker implements Runnable {
 
             String contentType = get_MIME_type(nameofthefile);
 
-            String header = errorcode + "\n" + "MIME-version: 1.1\n"
+            String header = errorcode + "\n"
                     + "Date: " + modifiedDate + "\n"
                     + "Server: NaviServer/2.0 AOLserver/2.3.3\n"
-                    + "Content-Type:" + contentType + "\n" + "Content-Length: " + fileLength + "\n\n";
+                    + "Content-Type:" + contentType + "\n" + "Content-Length: " + fileLength ;
             System.out.println("header of response is: " + header);
             outToClient.println(header);
+            outToClient.flush();
+            outToClient.println("");
             outToClient.flush();
             long current = 0;
 
@@ -197,7 +231,7 @@ class Worker implements Runnable {
 
     }
 
-    private static void get_for_post(PrintWriter outToClient,String postdata) {
+    private static void get_for_post(PrintWriter outToClient, String postdata) {
         String date = ZonedDateTime.now().format(DateTimeFormatter.RFC_1123_DATE_TIME);
         String modifiedDate = date.substring(0, 24);
 
@@ -205,19 +239,19 @@ class Worker implements Runnable {
         String header = "HTTP/1.1 200 OK" + "\n" + "MIME-version: 1.1\n"
                 + "Date: " + modifiedDate + "\n"
                 + "Server: NaviServer/2.0 AOLserver/2.3.3\n"
-                + "Content-Type:" +"text/html"  + "\n\n";
+                + "Content-Type:" + "text/html" + "\n\n";
         System.out.println("header of response is: " + header);
-        
-        String dataarray[]=postdata.split("=");
+
+        String dataarray[] = postdata.split("=");
         System.out.println(dataarray[1]);
-        
+
         outToClient.println(header);
         outToClient.flush();
         outToClient.println("<h1> Welcome to CSE 322 Offline 1</h1>");
         outToClient.flush();
         outToClient.println("<h2> HTTP REQUEST TYPE-> </h2>");
         outToClient.flush();
-        outToClient.println("<h2> Post->"+" "+dataarray[1].replace('+',' ') +"</h2>");
+        outToClient.println("<h2> Post->" + " " + dataarray[1].replace('+', ' ') + "</h2>");
         outToClient.flush();
         outToClient.println("<form name=\"input\" action=\"http://localhost:8080/form_submited\" method=\"post\">");
         outToClient.flush();
